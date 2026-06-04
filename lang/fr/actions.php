@@ -7,4 +7,5 @@ return [
     'view' => 'Consulter',
     'download' => 'Télécharger',
     'close' => 'Fermer',
+    'impersonate' => 'Se faire passer pour',
 ];

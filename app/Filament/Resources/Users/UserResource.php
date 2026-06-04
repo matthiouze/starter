@@ -5,7 +5,7 @@ namespace App\Filament\Resources\Users;
 use App\Filament\Resources\Users\Pages\CreateUser;
 use App\Filament\Resources\Users\Pages\EditUser;
 use App\Filament\Resources\Users\Pages\ListUsers;
-use App\Filament\Resources\Users\Schemas\RoleForm;
+use App\Filament\Resources\Users\Schemas\UserForm;
 use App\Filament\Resources\Users\Tables\UsersTable;
 use App\Models\User;
 use BackedEnum;
@@ -21,13 +21,16 @@ class UserResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = Heroicon::Users;
 
     protected static ?string $recordTitleAttribute = 'lastname';
+
     protected static ?string $navigationLabel = 'Utilisateurs';
+
     protected static ?string $modelLabel = 'Utilisateur';
+
     protected static ?string $pluralModelLabel = 'Utilisateurs';
 
     public static function form(Schema $schema): Schema
     {
-        return RoleForm::configure($schema);
+        return UserForm::configure($schema);
     }
 
     public static function table(Table $table): Table

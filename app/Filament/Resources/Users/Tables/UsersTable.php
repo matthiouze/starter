@@ -7,6 +7,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use STS\FilamentImpersonate\Actions\Impersonate;
 
 class UsersTable
 {
@@ -47,8 +48,9 @@ class UsersTable
                 //
             ])
             ->recordActions([
-                EditAction::make()
-                    ->label(__('actions.edit')),
+                EditAction::make()->label(__('actions.edit')),
+                Impersonate::make()->label(__('actions.impersonate'))
+                    ->redirectTo('/admin'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
