@@ -1,0 +1,11 @@
+Route::name('{{ $name }}.')
+    ->prefix('{{ $name }}')
+    ->group(function () {
+        Route::get('', [\App\Http\Controllers\{{ $controllerName }}::class, 'index'])->name('index');
+        Route::get('create', [\App\Http\Controllers\{{ $controllerName }}::class, 'create'])->name('create');
+        Route::post('', [\App\Http\Controllers\{{ $controllerName }}::class, 'store'])->name('store');
+        Route::get('{model}', [\App\Http\Controllers\{{ $controllerName }}::class, 'show'])->name('show');
+        Route::get('{model}/edit', [\App\Http\Controllers\{{ $controllerName }}::class, 'edit'])->name('edit');
+        Route::put('{model}', [\App\Http\Controllers\{{ $controllerName }}::class, 'update'])->name('update');
+        Route::delete('{model}', [\App\Http\Controllers\{{ $controllerName }}::class, 'delete'])->name('delete');
+    });
