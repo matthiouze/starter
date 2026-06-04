@@ -1,3 +1,39 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What this is
+
+A Laravel 13 + Filament v5 **admin starter kit** — the base from which concrete projects are built. The bias is toward reusable, project-agnostic building blocks (auth/roles, activity logging, log file management) rather than domain features.
+
+## Commands
+
+- `composer run dev` — run the full local stack concurrently (PHP server, queue listener, `pail` log tailer, Vite). Use this, not `php artisan serve` alone.
+- `composer run setup` — first-time bootstrap (env, key, migrate, npm build).
+- `composer run test` — clears config cache, then runs the suite. A bare `php artisan test` also works.
+- Single test: `php artisan test --filter="<test name or substring>"`.
+- After changing roles/resources/pages, regenerate permissions: `php artisan shield:generate --all`. Create the super admin with `php artisan shield:super-admin`.
+
+## Conventions specific to this codebase
+
+- **Everything is in French and localized.** `APP_LOCALE=fr`. Never hardcode user-facing strings — add them to `lang/fr/<group>.php` and reference with `__('group.key')`. Filament resources/pages/columns all follow this.
+- **Filament resources are split into helper classes**, not monolithic. Each `app/Filament/Resources/<Name>/` contains `Schemas/` (form & infolist config classes with a static `configure(Schema): Schema`), `Tables/` (table config class), and `Pages/`. The `Resource` class only wires them together (e.g. `UserForm::configure($schema)`). Match this structure when adding a resource.
+- **The `User` model uses `firstname` + `lastname`, not `name`**, and implements `HasName` (`getFilamentName()`). The factory and any seeders/tests must use these fields.
+- **Authorization is via filament-shield (Spatie permissions).** The super admin role name comes from `config/filament-shield.php` (`super_admin`) and intercepts the gate `before` — so super admins bypass all permission checks. To gate a page to super admins only, override `static canAccess(): bool` returning `auth()->user()?->hasRole(Utils::getSuperAdminName())` (see `app/Filament/Pages/LogViewer.php`). `canAccess` controls both navigation visibility and route access.
+- **Security-related screens live under one nav group:** return `__('shield.navigation_group')` from `getNavigationGroup()` so they group with Roles. The Shield plugin's own group label is set in `AdminPanelProvider` via `->navigationGroup(...)`.
+
+## Architecture notes
+
+- **Single admin panel** at `/admin` (`app/Providers/Filament/AdminPanelProvider.php`): auto-discovers Resources/Pages/Widgets, registers the FilamentShield plugin, and registers a customized profile page via `->profile(EditProfile::class, isSimple: false)` (the custom page adds the firstname/lastname fields and shows in navigation).
+- **Activity logging** uses `spatie/laravel-activitylog` (`activity_log` table).
+- **Log file management** (`app/Filament/Pages/LogViewer.php`) is a non-Eloquent example: a Filament `Page implements HasTable` whose `->records()` closure lists `storage/logs/*.log` files. View/download/delete + a "prune >1 month" header action. Array records require a unique `__key` per row.
+- **Scheduled cleanup**: `app:delete-log` (`app/Console/Commands/DeleteLog.php`) deletes `storage/logs` files older than 1 month; scheduled `->daily()` in `routes/console.php`.
+
+## Testing notes
+
+- Pest 4. The `livewire()` global helper plugin is **not** installed — test Livewire/Filament components with `Livewire\Livewire::test(Component::class)`, and table/page actions with `->callTableAction(...)` / `->callAction(...)`.
+- Tests run on sqlite `:memory:` (see `phpunit.xml`); use `RefreshDatabase`.
+
 <laravel-boost-guidelines>
 === foundation rules ===
 

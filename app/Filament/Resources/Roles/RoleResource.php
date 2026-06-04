@@ -4,30 +4,20 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Roles;
 
-use App\Filament\Resources\Roles\Tables\RolesTable;
-use App\Filament\Resources\Users\Schemas\RoleForm;
-use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use App\Filament\Resources\Roles\Pages\CreateRole;
 use App\Filament\Resources\Roles\Pages\EditRole;
 use App\Filament\Resources\Roles\Pages\ListRoles;
 use App\Filament\Resources\Roles\Pages\ViewRole;
+use App\Filament\Resources\Roles\Tables\RolesTable;
+use App\Filament\Resources\Users\Schemas\RoleForm;
+use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use BezhanSalleh\FilamentShield\Support\Utils;
 use BezhanSalleh\FilamentShield\Traits\HasShieldFormComponents;
 use BezhanSalleh\PluginEssentials\Concerns\Resource as Essentials;
-use Filament\Actions\EditAction;
-use Filament\Facades\Filament;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Panel;
 use Filament\Resources\Resource;
-use Filament\Schemas\Components\Grid;
-use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Filament\Support\Enums\FontWeight;
-use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Illuminate\Support\Str;
-use Illuminate\Validation\Rules\Unique;
 use Override;
 
 class RoleResource extends Resource
@@ -90,5 +80,10 @@ class RoleResource extends Resource
     public static function getEssentialsPlugin(): ?FilamentShieldPlugin
     {
         return FilamentShieldPlugin::get();
+    }
+
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->hasRole(Utils::getSuperAdminName()) ?? false;
     }
 }
