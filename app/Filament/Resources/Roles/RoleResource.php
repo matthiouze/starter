@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Roles;
 
+use App\Filament\Resources\Roles\Tables\RolesTable;
+use App\Filament\Resources\Users\Schemas\RoleForm;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use App\Filament\Resources\Roles\Pages\CreateRole;
 use App\Filament\Resources\Roles\Pages\EditRole;
@@ -42,85 +44,13 @@ class RoleResource extends Resource
     #[Override]
     public static function form(Schema $schema): Schema
     {
-        return $schema
-            ->components([
-                Grid::make()
-                    ->schema([
-                        Section::make()
-                            ->schema([
-                                TextInput::make('name')
-                                    ->label(__('filament-shield::filament-shield.field.name'))
-                                    ->unique(
-                                        ignoreRecord: true, /** @phpstan-ignore-next-line */
-                                        modifyRuleUsing: fn (Unique $rule): Unique => Utils::isTenancyEnabled() ? $rule->where(Utils::getTenantModelForeignKey(), Filament::getTenant()?->id) : $rule
-                                    )
-                                    ->required()
-                                    ->maxLength(255),
-
-                                TextInput::make('guard_name')
-                                    ->label(__('filament-shield::filament-shield.field.guard_name'))
-                                    ->default(Utils::getFilamentAuthGuard())
-                                    ->nullable()
-                                    ->maxLength(255),
-
-                                Select::make(config('permission.column_names.team_foreign_key'))
-                                    ->label(__('filament-shield::filament-shield.field.team'))
-                                    ->placeholder(__('filament-shield::filament-shield.field.team.placeholder'))
-                                    /** @phpstan-ignore-next-line */
-                                    ->default(Filament::getTenant()?->id)
-                                    ->options(fn (): array => in_array(Utils::getTenantModel(), [null, '', '0'], true) ? [] : Utils::getTenantModel()::pluck('name', 'id')->toArray())
-                                    ->visible(fn (): bool => static::shield()->isCentralApp() && Utils::isTenancyEnabled())
-                                    ->dehydrated(fn (): bool => static::shield()->isCentralApp() && Utils::isTenancyEnabled()),
-                                static::getSelectAllFormComponent(),
-
-                            ])
-                            ->columns([
-                                'sm' => 2,
-                                'lg' => 3,
-                            ])
-                            ->columnSpanFull(),
-                    ])
-                    ->columnSpanFull(),
-                static::getShieldFormComponents(),
-            ]);
+        return RoleForm::configure($schema);
     }
 
     #[Override]
     public static function table(Table $table): Table
     {
-        return $table
-            ->columns([
-                TextColumn::make('name')
-                    ->weight(FontWeight::Medium)
-                    ->label(__('filament-shield::filament-shield.column.name'))
-                    ->formatStateUsing(fn (string $state): string => Str::headline($state))
-                    ->searchable(),
-                TextColumn::make('guard_name')
-                    ->badge()
-                    ->color('warning')
-                    ->label(__('filament-shield::filament-shield.column.guard_name')),
-                TextColumn::make('team.name')
-                    ->default('Global')
-                    ->badge()
-                    ->color(fn (mixed $state): string => str($state)->contains('Global') ? 'gray' : 'primary')
-                    ->label(__('filament-shield::filament-shield.column.team'))
-                    ->searchable()
-                    ->visible(fn (): bool => static::shield()->isCentralApp() && Utils::isTenancyEnabled()),
-                TextColumn::make('permissions_count')
-                    ->badge()
-                    ->label(__('filament-shield::filament-shield.column.permissions'))
-                    ->counts('permissions')
-                    ->color('primary'),
-                TextColumn::make('updated_at')
-                    ->label(__('filament-shield::filament-shield.column.updated_at'))
-                    ->dateTime(),
-            ])
-            ->filters([
-                //
-            ])
-            ->recordActions([
-                EditAction::make(),
-            ]);
+        return RolesTable::configure($table);
     }
 
     #[Override]
