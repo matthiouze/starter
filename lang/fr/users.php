@@ -9,4 +9,5 @@ return [
     'updated_at' => 'Modifié le',
     'password' => 'Mot de passe',
     'roles' => 'Rôles',
+    'profile' => 'Mon profil',
 ];
