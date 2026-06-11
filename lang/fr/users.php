@@ -10,4 +10,6 @@ return [
     'password' => 'Mot de passe',
     'roles' => 'Rôles',
     'profile' => 'Mon profil',
+    'profile_tab' => 'Informations',
+    'security_tab' => 'Sécurité',
 ];

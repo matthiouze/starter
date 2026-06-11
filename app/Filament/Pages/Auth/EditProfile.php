@@ -6,8 +6,11 @@ use BackedEnum;
 use Filament\Auth\Pages\EditProfile as BaseEditProfile;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Component;
+use Filament\Schemas\Components\Tabs;
+use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Arr;
 
 class EditProfile extends BaseEditProfile
 {
@@ -29,6 +32,25 @@ class EditProfile extends BaseEditProfile
     public function getTitle(): string
     {
         return __('users.profile');
+    }
+
+    public function content(Schema $schema): Schema
+    {
+        return $schema
+            ->components([
+                Tabs::make()
+                    ->persistTabInQueryString()
+                    ->tabs([
+                        Tab::make(__('users.profile_tab'))
+                            ->icon(Heroicon::OutlinedUserCircle)
+                            ->schema([
+                                $this->getFormContentComponent(),
+                            ]),
+                        Tab::make(__('users.security_tab'))
+                            ->icon(Heroicon::OutlinedShieldCheck)
+                            ->schema(Arr::wrap($this->getMultiFactorAuthenticationContentComponent())),
+                    ]),
+            ]);
     }
 
     public function form(Schema $schema): Schema
