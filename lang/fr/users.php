@@ -9,7 +9,10 @@ return [
     'updated_at' => 'Modifié le',
     'password' => 'Mot de passe',
     'roles' => 'Rôles',
+    'permissions' => 'Permissions',
     'profile' => 'Mon profil',
     'profile_tab' => 'Informations',
     'security_tab' => 'Sécurité',
+    'information_tab' => 'Informations',
+    'roles_permissions_tab' => 'Rôles & permissions',
 ];
