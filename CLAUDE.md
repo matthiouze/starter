@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Laravel 13 + Filament v5 **admin starter kit** — the base from which concrete projects are built. The bias is toward reusable, project-agnostic building blocks (auth/roles, activity logging, log file management) rather than domain features.
+A Laravel 13 + Filament v5 **admin starter kit** — the base from which concrete projects are built. The bias is toward reusable, project-agnostic building blocks (auth/2FA, roles/permissions, settings, dashboard widgets, activity logging, log file management) rather than domain features.
 
 ## Commands
 
@@ -12,27 +12,48 @@ A Laravel 13 + Filament v5 **admin starter kit** — the base from which concret
 - `composer run setup` — first-time bootstrap (env, key, migrate, npm build).
 - `composer run test` — clears config cache, then runs the suite. A bare `php artisan test` also works.
 - Single test: `php artisan test --filter="<test name or substring>"`.
-- After changing roles/resources/pages, regenerate permissions: `php artisan shield:generate --all`. Create the super admin with `php artisan shield:super-admin`.
+- `php artisan db:seed` — `AdminSeeder` creates/updates `test@test.com` (password `azeaze`) and assigns it the super admin role. Idempotent.
+- `php artisan make:crud {Model}` — **custom** generator (see below), unrelated to Filament.
+- After changing roles/resources/pages, regenerate permissions: `php artisan shield:generate --all`. Create a super admin with `php artisan shield:super-admin`.
+- Settings schema changes need `php artisan migrate` too — spatie/laravel-settings migrations live in `database/settings/`, not `database/migrations/`.
 
 ## Conventions specific to this codebase
 
-- **Everything is in French and localized.** `APP_LOCALE=fr`. Never hardcode user-facing strings — add them to `lang/fr/<group>.php` and reference with `__('group.key')`. Filament resources/pages/columns all follow this.
+- **Everything is in French and localized.** `APP_LOCALE=fr`. Never hardcode user-facing strings. Two mechanisms, both in use:
+  - App strings → groups in `lang/fr/<group>.php` (`actions`, `breadcrumbs`, `dashboard`, `logs`, `settings`, `shield`, `users`), referenced with `__('group.key')`.
+  - Vendor/framework strings (notification emails, password reset) → key-as-English-sentence entries in `lang/fr.json`.
 - **Filament resources are split into helper classes**, not monolithic. Each `app/Filament/Resources/<Name>/` contains `Schemas/` (form & infolist config classes with a static `configure(Schema): Schema`), `Tables/` (table config class), and `Pages/`. The `Resource` class only wires them together (e.g. `UserForm::configure($schema)`). Match this structure when adding a resource.
-- **The `User` model uses `firstname` + `lastname`, not `name`**, and implements `HasName` (`getFilamentName()`). The factory and any seeders/tests must use these fields.
-- **Authorization is via filament-shield (Spatie permissions).** The super admin role name comes from `config/filament-shield.php` (`super_admin`) and intercepts the gate `before` — so super admins bypass all permission checks. To gate a page to super admins only, override `static canAccess(): bool` returning `auth()->user()?->hasRole(Utils::getSuperAdminName())` (see `app/Filament/Pages/LogViewer.php`). `canAccess` controls both navigation visibility and route access.
-- **Security-related screens live under one nav group:** return `__('shield.navigation_group')` from `getNavigationGroup()` so they group with Roles. The Shield plugin's own group label is set in `AdminPanelProvider` via `->navigationGroup(...)`.
+- **List/Create/Edit pages `use HasBreadcrumbLabel`** (`app/Filament/Traits/`) to get localized breadcrumbs from `lang/fr/breadcrumbs.php`. Add it to new resource pages.
+- **The `User` model uses `firstname` + `lastname`, not `name`**, and implements `HasName` (`getFilamentName()`). Factories, seeders, and tests must use these fields. Fillable/hidden are declared via PHP attributes (`#[Fillable([...])]`, `#[Hidden([...])]`), not `$fillable` properties — follow that for new models (see `stubs/model.stub`).
+- **Authorization is via filament-shield (Spatie permissions).** The super admin role name comes from `config/filament-shield.php` (`super_admin`) and intercepts the gate `before` — so super admins bypass all permission checks. Policies in `app/Policies/` are shield-generated and check `Ability:Model` permission names (`$authUser->can('ViewAny:User')`); regenerate rather than hand-editing. To gate a page/resource to super admins only, override `static canAccess(): bool` returning `auth()->user()?->hasRole(Utils::getSuperAdminName()) ?? false` (see `LogViewer`, `ManageGeneralSettings`, `RoleResource`). `canAccess` controls both navigation visibility and route access.
+- **Nav groups come from translations:** security screens return `__('shield.navigation_group')` from `getNavigationGroup()` so they group with Roles; settings screens return `__('settings.navigation_group')`. The Shield plugin's own group label is set in `AdminPanelProvider` via `->navigationGroup(...)`.
 
 ## Architecture notes
 
-- **Single admin panel** at `/admin` (`app/Providers/Filament/AdminPanelProvider.php`): auto-discovers Resources/Pages/Widgets, registers the FilamentShield plugin, and registers a customized profile page via `->profile(EditProfile::class, isSimple: false)` (the custom page adds the firstname/lastname fields and shows in navigation).
-- **Activity logging** uses `spatie/laravel-activitylog` (`activity_log` table).
-- **Log file management** (`app/Filament/Pages/LogViewer.php`) is a non-Eloquent example: a Filament `Page implements HasTable` whose `->records()` closure lists `storage/logs/*.log` files. View/download/delete + a "prune >1 month" header action. Array records require a unique `__key` per row.
-- **Scheduled cleanup**: `app:delete-log` (`app/Console/Commands/DeleteLog.php`) deletes `storage/logs` files older than 1 month; scheduled `->daily()` in `routes/console.php`.
+- **Single admin panel** at `/admin` (`app/Providers/Filament/AdminPanelProvider.php`) — this is the whole app; `routes/web.php` only serves the default `welcome` view. The panel auto-discovers Resources/Pages/Widgets and wires:
+  - `->login()`, `->passwordReset()`, and `->profile(EditProfile::class, isSimple: false)`.
+  - **2FA** via `->multiFactorAuthentication([AppAuthentication (TOTP, recoverable, 10 non-regenerable codes), EmailAuthentication (10 min expiry)])`. `User` implements the four Filament MFA contracts + concerns; the columns come from `alter_users_table` (`app_authentication_secret`, `app_authentication_recovery_codes`, `has_email_authentication`).
+  - `FilamentShieldPlugin`.
+- **Custom profile page** (`app/Filament/Pages/Auth/EditProfile.php`) overrides `content()` to render two tabs — profile fields and the MFA component (`getMultiFactorAuthenticationContentComponent()`) — and adds the firstname/lastname inputs. It sets `shouldRegisterNavigation(): true` so it appears in navigation.
+- **Settings** use `spatie/laravel-settings` + the Filament plugin: `app/Settings/GeneralSettings.php` (group `general`: `site_name`, `support_email`, `maintenance_mode`) is edited through `ManageGeneralSettings extends SettingsPage` (declares `protected static string $settings`, no Eloquent model). Adding a setting = new property on the class **and** a migration in `database/settings/` (`$this->migrator->add('general.key', $default)`).
+- **Dashboard widgets** (`app/Filament/Widgets/`, auto-discovered, ordered by `$sort`): `StatsOverview` (users / roles / 30-day activity counts), `UsersChart` (6-month line chart, `translatedFormat` for French month labels), `LatestActivities` (`TableWidget` over the activity log).
+- **Impersonation** via `stechstudio/filament-impersonate`: `Impersonate::make()` is a record action in `UsersTable`, redirecting to `/admin`.
+- **Activity logging**: `spatie/laravel-activitylog` is installed (`activity_log` table) and read by `LatestActivities`, but **no model uses `LogsActivity` yet** — writing activity is up to the concrete project.
+- **Log file management** (`app/Filament/Pages/LogViewer.php`) is the non-Eloquent table example: a Filament `Page implements HasTable` whose `->records()` closure lists `storage/logs/*.log`. View (capped at `MAX_PREVIEW_BYTES` = 256 KB)/download/delete + a "prune >1 month" header action. Array records require a unique `__key` per row.
+- **Scheduled cleanup**: `app:delete-log` (`app/Console/Commands/DeleteLog.php`) deletes `storage/logs` files older than 1 month; scheduled `->daily()` in `routes/console.php`. Console commands use the `#[Signature]` / `#[Description]` attributes rather than `$signature` properties.
+- **`make:crud`** (`app/Console/Commands/MakeCrud.php`) scaffolds a *Blade* CRUD, not a Filament resource: model + controller + migration via `make:*`, then overwrites the model and controller from `app/Console/Commands/stubs/`, **appends** a route group to `routes/web.php`, and creates **empty** `resources/views/<plural_snake>/{index,create,edit,show}.blade.php` + `partials/form.blade.php` for you to fill in. The generated controller actions have empty bodies (`delete`, not `destroy`).
 
 ## Testing notes
 
-- Pest 4. The `livewire()` global helper plugin is **not** installed — test Livewire/Filament components with `Livewire\Livewire::test(Component::class)`, and table/page actions with `->callTableAction(...)` / `->callAction(...)`.
-- Tests run on sqlite `:memory:` (see `phpunit.xml`); use `RefreshDatabase`.
+- Pest 4, tests in `tests/Feature` only so far (`DashboardWidgetsTest`, `EditProfileTest`, `ManageGeneralSettingsTest`).
+- **`RefreshDatabase` is not applied globally** — it's commented out in `tests/Pest.php`. Each test file declares `uses(Illuminate\Foundation\Testing\RefreshDatabase::class);` itself.
+- The `livewire()` global helper plugin is **not** installed — test Livewire/Filament components with `Livewire\Livewire::test(Component::class)`, and table/page actions with `->callTableAction(...)` / `->callAction(...)`.
+- Tests run on sqlite `:memory:` (see `phpunit.xml`); the settings migrations run with the rest, so `app(GeneralSettings::class)` works under `RefreshDatabase`.
+- Super-admin setup in tests: create the role then assign it, e.g. `Role::firstOrCreate(['name' => Utils::getSuperAdminName(), 'guard_name' => 'web'])` (see the `superAdmin()` helper in `ManageGeneralSettingsTest`).
+
+## Known wart
+
+`RoleForm` lives at `app/Filament/Resources/Roles/Schemas/RoleForm.php` but declares `namespace App\Filament\Resources\Users\Schemas` — the path and namespace disagree, and `RoleResource` imports the `Users\Schemas` name. It resolves only because `composer.json` sets `optimize-autoloader`. If you touch it, move the file to match the namespace (or rename the namespace to `Roles\Schemas` and update the import).
 
 <laravel-boost-guidelines>
 === foundation rules ===
